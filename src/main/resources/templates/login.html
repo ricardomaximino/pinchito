@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar sesión - Pinchito Gestor de Deudas Amorosas</title>
+    <meta name="description" content="Gestiona y sigue deudas amorosas de forma divertida y gamificada con tu pareja.">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+    <div class="auth-wrapper">
+        <div class="glass-card auth-card">
+            <h1 class="logo auth-title" style="justify-content: center; margin-bottom: 0.5rem;">
+                Pinchito <span class="logo-heart">❤</span>
+            </h1>
+            <p class="auth-subtitle">Gestión de deudas amorosas para parejas enamoradas</p>
+            
+            <div th:if="${error}" class="error-message" th:text="${error}"></div>
+            <div th:if="${param.error}" class="error-message" th:text="${param.error}"></div>
+
+            <form th:action="@{/login}" method="post">
+                <div class="form-group">
+                    <label class="form-label" for="accountName">Nombre de la Cuenta</label>
+                    <input type="text" id="accountName" name="accountName" class="form-control" placeholder="p. ej. pareja_ideal" required autofocus>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="username">Nombre de Usuario</label>
+                    <input type="text" id="username" name="username" class="form-control" placeholder="p. ej. Alicia" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="password">Contraseña</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
+                </div>
+                
+                <button type="submit" class="btn-primary" id="btn-login-submit">
+                    Entrar al Espacio de Relación
+                </button>
+            </form>
+            
+            <div class="auth-footer">
+                ¿Aún no tenéis una cuenta compartida? <br>
+                <a th:href="@{/register}">Registrar una nueva cuenta</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

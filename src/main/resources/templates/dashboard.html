@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Control - Pinchito Gestor de Deudas Amorosas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+    <!-- Barra de navegación -->
+    <header>
+        <div class="nav-container">
+            <a th:href="@{/dashboard}" class="logo">
+                Pinchito <span class="logo-heart">❤</span>
+            </a>
+            <div class="user-info">
+                <div class="user-badge">
+                    Relación: <strong th:text="${accountName}">pareja_ideal</strong> | Usuario: <strong th:text="${username}">Alicia</strong>
+                </div>
+                <a th:href="@{/logout}" class="btn-logout">Cerrar Sesión</a>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="dashboard-grid">
+            <!-- Columna Izquierda: Listas de Deudas -->
+            <div class="glass-card">
+                <!-- Pestañas de Navegación -->
+                <div class="tab-navigation">
+                    <button class="tab-btn active" data-target="tab-owe" id="btn-tab-owe">
+                        Deudas que Debo 
+                        <span class="tab-badge" th:if="${!debitsIOwe.isEmpty()}" th:text="${debitsIOwe.size()}">0</span>
+                    </button>
+                    <button class="tab-btn" data-target="tab-receive" id="btn-tab-receive">
+                        Deudas que me Deben 
+                        <span class="tab-badge" th:if="${!debitsOwedToMe.isEmpty()}" th:text="${debitsOwedToMe.size()}">0</span>
+                    </button>
+                    <button class="tab-btn" data-target="tab-opposition" id="btn-tab-opposition">
+                        Oposición (Rechazos) 
+                        <span class="tab-badge" th:if="${!oppositionDebits.isEmpty()}" th:text="${oppositionDebits.size()}">0</span>
+                    </button>
+                    <button class="tab-btn" data-target="tab-history" id="btn-tab-history">
+                        Historial de Pagos
+                        <span class="tab-badge" th:if="${!paidHistory.isEmpty()}" th:text="${paidHistory.size()}">0</span>
+                    </button>
+                </div>
+
+                <!-- Pestaña 1: Deudas que Debo (A Pagar) -->
+                <div id="tab-owe" class="tab-content active">
+                    <h2 style="margin-bottom: 1.5rem; font-size: 1.4rem;">Deudas que tienes que pagar</h2>
+                    <div class="debit-list">
+                        <div th:if="${debitsIOwe.isEmpty()}" class="no-debits">
+                            ¡Estás al día! No tienes deudas que pagar por ahora. ¡Es hora de calentar el ambiente! 🔥
+                        </div>
+                        <div th:each="debit : ${debitsIOwe}" class="debit-card">
+                            <div class="debit-header">
+                                <div class="debit-title-row">
+                                    <span class="debit-qty" th:text="${debit.quantity}">1</span>
+                                    <span class="encoded-kind">
+                                        <span th:text="${debit.kind.displayName}">Revisar las tuberías</span>
+                                        <span class="tooltip-text" th:text="${debit.kind.description}">Descripción del tooltip</span>
+                                    </span>
+                                </div>
+                                <span class="debit-status-badge pending">Pendiente</span>
+                            </div>
+                            <div class="debit-meta">
+                                Debido a: <strong th:text="${debit.toUser}">Alicia</strong> | Creado: <span th:text="${debit.createdDate}">2026-06-22</span>
+                            </div>
+                            <div class="debit-reason" th:text="${debit.why}">
+                                Porque estaba guapísima en el aniversario de sus padres.
+                            </div>
+                            
+                            <div class="debit-actions">
+                                <!-- Estado: Esperando Confirmación -->
+                                <div th:if="${debit.hasPendingPaymentRequest()}" style="background: rgba(255, 183, 0, 0.08); border: 1px solid rgba(255, 183, 0, 0.2); padding: 0.8rem 1rem; border-radius: 10px; font-size: 0.9rem;">
+                                    <span style="color: var(--warning); font-weight: 700;">⌛ Esperando Confirmación</span>
+                                    <p style="margin-top: 0.3rem; color: var(--text-muted);">
+                                        Declaraste el pago: <em th:text="${debit.getPendingPaymentRequest().whyPaid}">...</em>
+                                    </p>
+                                </div>
+                                <!-- Formulario: Declarar Pago -->
+                                <form th:if="${!debit.hasPendingPaymentRequest()}" th:action="@{/debit/request-payment}" method="post" class="payment-request-form">
+                                    <input type="hidden" name="debitId" th:value="${debit.id}">
+                                    <input type="text" name="whyPaid" class="form-control" placeholder="Explica cómo/cuándo pagaste (p. ej. Hecho el sábado por la noche...)" required>
+                                    <button type="submit" class="btn-primary btn-small" style="width: auto; padding: 0.8rem 1.5rem; margin-top: 0;">
+                                        Declarar Pagado
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestaña 2: Deudas que me Deben (A Recibir / Confirmar) -->
+                <div id="tab-receive" class="tab-content">
+                    <h2 style="margin-bottom: 1.5rem; font-size: 1.4rem;">Deudas que te deben</h2>
+                    <div class="debit-list">
+                        <div th:if="${debitsOwedToMe.isEmpty()}" class="no-debits">
+                            Nadie te debe nada. ¡Quizás deberías declarar una nueva deuda! 😉
+                        </div>
+                        <div th:each="debit : ${debitsOwedToMe}" class="debit-card">
+                            <div class="debit-header">
+                                <div class="debit-title-row">
+                                    <span class="debit-qty" th:text="${debit.quantity}">1</span>
+                                    <span class="encoded-kind">
+                                        <span th:text="${debit.kind.displayName}">Revisar las tuberías</span>
+                                        <span class="tooltip-text" th:text="${debit.kind.description}">Descripción del tooltip</span>
+                                    </span>
+                                </div>
+                                <span class="debit-status-badge pending">Pendiente</span>
+                            </div>
+                            <div class="debit-meta">
+                                Deudor: <strong th:text="${debit.fromUser}">Bob</strong> | Creado: <span th:text="${debit.createdDate}">2026-06-22</span>
+                            </div>
+                            <div class="debit-reason" th:text="${debit.why}">
+                                Porque estaba guapísima en el aniversario de sus padres.
+                            </div>
+                            
+                            <div class="debit-actions">
+                                <!-- Confirmación pendiente de la pareja -->
+                                <div th:if="${debit.hasPendingPaymentRequest()}" class="pending-request-item">
+                                    <div style="font-weight: 700; color: var(--primary);">🔔 ¡Confirmación de Pago Solicitada!</div>
+                                    <div class="request-claim-text">
+                                        <strong th:text="${debit.fromUser}">Bob</strong> afirma que pagó: <br>
+                                        <span th:text="${debit.getPendingPaymentRequest().whyPaid}">...</span>
+                                    </div>
+                                    
+                                    <div style="display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap;">
+                                        <!-- Formulario Confirmar -->
+                                        <form th:action="@{/debit/confirm-payment}" method="post">
+                                            <input type="hidden" name="debitId" th:value="${debit.id}">
+                                            <input type="hidden" name="requestId" th:value="${debit.getPendingPaymentRequest().id}">
+                                            <button type="submit" class="btn-small btn-small-success">
+                                                ✔ Confirmar y Archivar
+                                            </button>
+                                        </form>
+                                        
+                                        <!-- Formulario Rechazar -->
+                                        <form th:action="@{/debit/reject-payment}" method="post" style="display: flex; gap: 0.5rem; flex: 1; min-width: 250px;">
+                                            <input type="hidden" name="debitId" th:value="${debit.id}">
+                                            <input type="hidden" name="requestId" th:value="${debit.getPendingPaymentRequest().id}">
+                                            <input type="text" name="rejectionReason" class="form-control" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;" placeholder="Escribe el motivo del rechazo..." required>
+                                            <button type="submit" class="btn-small btn-small-danger">
+                                                ❌ Rechazar
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                                <div th:if="${!debit.hasPendingPaymentRequest()}" style="color: var(--text-muted); font-size: 0.9rem; font-style: italic;">
+                                    Esperando declaración de pago de <span th:text="${debit.fromUser}">Bob</span>...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestaña 3: Oposición (Rechazos) -->
+                <div id="tab-opposition" class="tab-content">
+                    <h2 style="margin-bottom: 1.5rem; font-size: 1.4rem;">Declaraciones rechazadas (Oposición)</h2>
+                    <div class="debit-list">
+                        <div th:if="${oppositionDebits.isEmpty()}" class="no-debits">
+                            ¡Sin rechazos! Todas tus reclamaciones están pendientes o confirmadas. ¡Gran comunicación! 🥂
+                        </div>
+                        <div th:each="debit : ${oppositionDebits}" class="debit-card rejection-history-card">
+                            <div class="debit-header">
+                                <div class="debit-title-row">
+                                    <span class="debit-qty" th:text="${debit.quantity}">1</span>
+                                    <span class="encoded-kind">
+                                        <span th:text="${debit.kind.displayName}">Revisar las tuberías</span>
+                                        <span class="tooltip-text" th:text="${debit.kind.description}">Descripción del tooltip</span>
+                                    </span>
+                                </div>
+                                <span class="debit-status-badge" style="background: rgba(255,59,59,0.15); border:1px solid rgba(255,59,59,0.3); color: var(--danger);">Rechazado</span>
+                            </div>
+                            <div class="debit-meta">
+                                Debido a: <strong th:text="${debit.toUser}">Alicia</strong> | Creado: <span th:text="${debit.createdDate}">2026-06-22</span>
+                            </div>
+                            <div class="debit-reason" th:text="${debit.why}">
+                                Porque estaba guapísima en el aniversario de sus padres.
+                            </div>
+                            
+                            <!-- Historial de rechazos -->
+                            <div th:each="req : ${debit.getRejectedPaymentRequests()}" class="rejection-bubble">
+                                <div class="rejection-title">
+                                    <span>❌</span> Intento de Pago Rechazado
+                                </div>
+                                <p style="margin-bottom: 0.3rem;"><strong>Tu declaración:</strong> "<span th:text="${req.whyPaid}">...</span>"</p>
+                                <p style="color: #ff8080;"><strong>Objeción de tu pareja:</strong> "<span th:text="${req.rejectionReason}">...</span>"</p>
+                                <div class="debit-meta" style="margin-top: 0.5rem; margin-bottom: 0;" th:text="${'Fecha: ' + req.requestDate}">...</div>
+                            </div>
+                            
+                            <div class="debit-actions" th:if="${!debit.hasPendingPaymentRequest()}">
+                                <form th:action="@{/debit/request-payment}" method="post" class="payment-request-form">
+                                    <input type="hidden" name="debitId" th:value="${debit.id}">
+                                    <input type="text" name="whyPaid" class="form-control" placeholder="Inténtalo de nuevo: describe cómo/cuándo lo pagaste..." required>
+                                    <button type="submit" class="btn-primary btn-small" style="width: auto; padding: 0.8rem 1.5rem; margin-top: 0; background: var(--secondary)">
+                                        Volver a Reclamar Pago
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestaña 4: Historial de Pagos (Archivo) -->
+                <div id="tab-history" class="tab-content">
+                    <h2 style="margin-bottom: 1.5rem; font-size: 1.4rem;">Transacciones completadas</h2>
+                    <div class="debit-list">
+                        <div th:if="${paidHistory.isEmpty()}" class="no-debits">
+                            No hay transacciones pagadas aún. ¡A ponerse a trabajar con las deudas! 😉
+                        </div>
+                        <div th:each="debit : ${paidHistory}" class="debit-card" style="opacity: 0.85; border-color: rgba(255,255,255,0.05);">
+                            <div class="debit-header">
+                                <div class="debit-title-row">
+                                    <span class="debit-qty" style="background: rgba(255,255,255,0.1); color: var(--text-muted); box-shadow: none;" th:text="${debit.quantity}">1</span>
+                                    <span class="encoded-kind" style="color: var(--text-muted); border-bottom: none;">
+                                        <span th:text="${debit.kind.displayName}">Revisar las tuberías</span>
+                                        <span class="tooltip-text" th:text="${debit.kind.description}">Descripción del tooltip</span>
+                                    </span>
+                                </div>
+                                <span class="debit-status-badge paid">Pagado</span>
+                            </div>
+                            <div class="debit-meta">
+                                Pagador: <strong th:text="${debit.fromUser}">Bob</strong> | Beneficiario: <strong th:text="${debit.toUser}">Alicia</strong>
+                            </div>
+                            <div class="debit-reason" style="border-left-color: var(--success);" th:text="${debit.why}">
+                                Porque estaba guapísima en el aniversario de sus padres.
+                            </div>
+                            <div th:each="req : ${debit.paymentRequests}" th:if="${'CONFIRMED'.equalsIgnoreCase(req.status)}" style="font-size: 0.85rem; padding: 0.5rem; background: rgba(0,230,153,0.06); border-radius: 8px; border: 1px solid rgba(0,230,153,0.1); color: var(--success);">
+                                <strong>Prueba de pago:</strong> <span th:text="${req.whyPaid}">...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Formulario Declarar Nueva Deuda -->
+            <div class="glass-card">
+                <h2 style="font-size: 1.4rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    Declarar Deuda <span style="color: var(--primary); animation: pulse 1.5s infinite;">❤</span>
+                </h2>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">
+                    Declara lo que tu pareja te debe por ese momento especial.
+                </p>
+
+                <form th:action="@{/debit/create}" method="post">
+                    <div class="form-group">
+                        <label class="form-label">¿Quién debe esto?</label>
+                        <select name="fromUser" class="form-control" required>
+                            <option th:each="member : ${otherMembers}" th:value="${member}" th:text="${member}">Bob</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Cantidad</label>
+                        <input type="number" name="quantity" class="form-control" min="1" max="100" value="1" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Tipo (Pasa el cursor para ver descripción)</label>
+                        <select name="kind" class="form-control" required>
+                            <option th:each="kind : ${debitKinds}" th:value="${kind}" th:text="${kind.displayName}">
+                                Revisar las tuberías
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Por qué / Descripción</label>
+                        <textarea name="why" class="form-control" rows="4" placeholder="Explica por qué te lo debe (p. ej. Porque estaba guapísima en el aniversario de sus padres...)" required></textarea>
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="btn-declare-submit">
+                        Declarar Deuda Amorosa
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container para Notificaciones en Tiempo Real -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Librerías de SockJS y STOMP para WebSockets -->
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <!-- Script de persistencia de Pestañas y Conexión WebSockets -->
+    <script th:inline="javascript">
+        document.addEventListener("DOMContentLoaded", () => {
+            // Persistencia de Pestañas
+            const tabs = document.querySelectorAll(".tab-btn");
+            const contents = document.querySelectorAll(".tab-content");
+
+            let activeTabId = localStorage.getItem("pinchito_active_tab") || "tab-owe";
+            
+            if (!document.querySelector(`[data-target="${activeTabId}"]`)) {
+                activeTabId = "tab-owe";
+            }
+
+            switchTab(activeTabId);
+
+            tabs.forEach(tab => {
+                tab.addEventListener("click", () => {
+                    const targetId = tab.getAttribute("data-target");
+                    switchTab(targetId);
+                });
+            });
+
+            function switchTab(id) {
+                tabs.forEach(t => {
+                    if (t.getAttribute("data-target") === id) {
+                        t.classList.add("active");
+                    } else {
+                        t.classList.remove("active");
+                    }
+                });
+
+                contents.forEach(c => {
+                    if (c.id === id) {
+                        c.classList.add("active");
+                    } else {
+                        c.classList.remove("active");
+                    }
+                });
+
+                localStorage.setItem("pinchito_active_tab", id);
+            }
+
+            // Configuración de WebSockets para Sincronización en Tiempo Real
+            const accountName = /*[[${accountName}]]*/ 'pareja_ideal';
+            const currentUsername = /*[[${username}]]*/ 'Alicia';
+
+            if (accountName && currentUsername) {
+                const socket = new SockJS('/ws');
+                const stompClient = Stomp.over(socket);
+                
+                // Desactivar logs de depuración en consola para mantenerla limpia
+                stompClient.debug = null;
+
+                stompClient.connect({}, (frame) => {
+                    // Suscribirse al canal específico de la cuenta
+                    stompClient.subscribe('/topic/account/' + accountName, (response) => {
+                        try {
+                            const event = JSON.parse(response.body);
+                            // Solo notificar si la acción no fue realizada por el usuario actual
+                            if (event.sender && event.sender.toLowerCase() !== currentUsername.toLowerCase()) {
+                                showNotification(event.message);
+                            }
+                        } catch (e) {
+                            console.error("Error al procesar el mensaje de WebSocket", e);
+                        }
+                    });
+                }, (error) => {
+                    console.error("Error en la conexión de WebSocket", error);
+                });
+            }
+
+            function showNotification(message) {
+                const container = document.getElementById("toast-container");
+                if (!container) return;
+
+                const toast = document.createElement("div");
+                toast.className = "toast";
+                toast.innerHTML = `
+                    <span style="font-size: 1.5rem; color: var(--primary);">❤</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 700; font-size: 0.95rem; margin-bottom: 0.2rem;">Actualización en vivo</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.3;">${message}</div>
+                    </div>
+                `;
+
+                container.appendChild(toast);
+
+                // Silenciosamente recargar la página tras 2 segundos para actualizar los datos
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>

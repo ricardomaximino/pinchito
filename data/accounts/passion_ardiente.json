@@ -1,0 +1,23 @@
+{
+  "accountName" : "passion_ardiente",
+  "members" : [ {
+    "username" : "Ricardo",
+    "password" : "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
+  }, {
+    "username" : "Africa",
+    "password" : "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
+  } ],
+  "debits" : [ {
+    "id" : "865d0a06-5dc0-4ddb-a759-3c5f59fbefb4",
+    "fromUser" : "Africa",
+    "toUser" : "Ricardo",
+    "quantity" : 1,
+    "kind" : "PIT_STOP",
+    "why" : "Porque me gusta mucho",
+    "status" : "PENDING",
+    "createdDate" : "2026-06-22 17:08",
+    "paymentRequests" : [ ],
+    "pendingPaymentRequest" : null,
+    "rejectedPaymentRequests" : [ ]
+  } ]
+}

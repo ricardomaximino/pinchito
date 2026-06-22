@@ -1,0 +1,14 @@
+# Use a slim, secure base image
+FROM eclipse-temurin:25-jre-ubi10-minimal
+
+# Define build-time argument for the JAR name
+ARG NAME=pinchito-0.0.1-SNAPSHOT.jar
+
+# Set working directory
+WORKDIR /app
+
+# Copy JAR file into container
+COPY ${NAME} app.jar
+
+# Use exec form for ENTRYPOINT to avoid shell issues
+ENTRYPOINT ["java", "-jar", "app.jar"]
