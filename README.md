@@ -1,0 +1,1 @@
+mvn clean install && mvn -Pnative native:compile && docker build -f docker/Dockerfile --tag ricardomaximino/pinchito . && docker push ricardomaximino/pinchito:latest
