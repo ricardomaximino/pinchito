@@ -43,7 +43,7 @@ class InMemoryStorageServiceTest {
     }
 
     @Test
-    void testSaveWritesToCacheAndMarksDirty() {
+    void testSaveWritesToCacheAndMarksDirty() throws Exception {
         when(backingStorage.listAccounts()).thenReturn(Collections.emptyList());
         inMemoryStorageService.init();
 
@@ -53,19 +53,22 @@ class InMemoryStorageServiceTest {
         assertTrue(inMemoryStorageService.accountExists("brand_new"));
         assertEquals(newAccount, inMemoryStorageService.loadAccount("brand_new"));
 
-        verify(backingStorage, never()).saveAccount(any(Account.class));
+        // Verify it is eventually saved to the backing storage in the background
+        verify(backingStorage, timeout(3000).times(1)).saveAccount(newAccount);
 
-        inMemoryStorageService.shutdown();
+        // Shutdown context using the destroy lifecycle method
+        inMemoryStorageService.destroy();
 
+        // Verify it was not written again (total invocation count remains 1)
         verify(backingStorage, times(1)).saveAccount(newAccount);
     }
 
     @Test
-    void testShutdownWithoutChanges() {
+    void testShutdownWithoutChanges() throws Exception {
         when(backingStorage.listAccounts()).thenReturn(Collections.emptyList());
         inMemoryStorageService.init();
 
-        inMemoryStorageService.shutdown();
+        inMemoryStorageService.destroy();
 
         verify(backingStorage, never()).saveAccount(any(Account.class));
     }

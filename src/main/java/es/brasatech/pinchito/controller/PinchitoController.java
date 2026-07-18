@@ -127,10 +127,17 @@ public class PinchitoController {
         }
 
         List<Member> members = new ArrayList<>();
+        java.util.Set<String> lowerUsernames = new java.util.HashSet<>();
         for (int i = 0; i < usernames.size(); i++) {
             String u = usernames.get(i).trim();
             String p = passwords.size() > i ? passwords.get(i) : "";
             if (!u.isEmpty() && !p.isEmpty()) {
+                String lowerU = u.toLowerCase();
+                if (lowerUsernames.contains(lowerU)) {
+                    model.addAttribute("error", "Los nombres de usuario de la relación deben ser únicos (no se distingue entre mayúsculas y minúsculas).");
+                    return "register";
+                }
+                lowerUsernames.add(lowerU);
                 members.add(new Member(u, PasswordHasher.hashPassword(p)));
             }
         }

@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class InMemoryStorageService implements StorageService, DisposableBean {
 
@@ -19,6 +22,7 @@ public class InMemoryStorageService implements StorageService, DisposableBean {
     private final StorageService backingStorage;
     private final Map<String, Account> cache = new ConcurrentHashMap<>();
     private final Set<String> dirtyAccounts = ConcurrentHashMap.newKeySet();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public InMemoryStorageService(StorageService backingStorage) {
         this.backingStorage = backingStorage;
@@ -41,7 +45,22 @@ public class InMemoryStorageService implements StorageService, DisposableBean {
         String key = account.getAccountName().toLowerCase();
         cache.put(key, account);
         dirtyAccounts.add(key);
-        log.info("Saved account '{}' in memory. Marked as dirty.", key);
+        String storageType = (backingStorage instanceof GitHubStorageService) ? "GITHUB" : "LOCAL_DISK";
+        log.info("Saved account '{}' in memory. Marked as dirty. Queuing asynchronous sync to {}.", key, storageType);
+
+        executor.submit(() -> {
+            try {
+                log.info("Asynchronously syncing account '{}' to {}...", key, storageType);
+                backingStorage.saveAccount(account);
+                dirtyAccounts.remove(key);
+                log.info("Asynchronous sync completed to {} for account '{}'.", storageType, key);
+            } catch (org.springframework.web.client.RestClientResponseException e) {
+                log.error("Failed to asynchronously sync account '{}' to {}! HTTP Status: {} {}, Response Body: {}", 
+                          key, storageType, e.getStatusCode(), e.getStatusText(), e.getResponseBodyAsString(), e);
+            } catch (Exception e) {
+                log.error("Failed to asynchronously sync account '{}' to {}!", key, storageType, e);
+            }
+        });
     }
 
     @Override
@@ -77,26 +96,41 @@ public class InMemoryStorageService implements StorageService, DisposableBean {
 
     @Override
     public void destroy() throws Exception {
+        log.info("Shutdown signal received. Gracefully shutting down background sync executor...");
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                log.warn("Background sync executor did not terminate in 5s. Forcing shutdown.");
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
         shutdown();
     }
 
     public void shutdown() {
-        log.info("Shutdown signal received. Syncing dirty accounts to backing storage...");
+        String storageType = (backingStorage instanceof GitHubStorageService) ? "GITHUB" : "LOCAL_DISK";
+        log.info("Shutdown signal received. Syncing dirty accounts to {}...", storageType);
         if (dirtyAccounts.isEmpty()) {
             log.info("No modifications detected. Exiting without backing sync.");
             return;
         }
 
-        log.info("Found {} dirty accounts to sync: {}", dirtyAccounts.size(), dirtyAccounts);
+        log.info("Found {} dirty accounts to sync to {}: {}", dirtyAccounts.size(), storageType, dirtyAccounts);
         for (String accountName : dirtyAccounts) {
             try {
                 Account account = cache.get(accountName);
                 if (account != null) {
-                    log.info("Syncing account '{}' to backing storage...", accountName);
+                    log.info("Syncing account '{}' to {}...", accountName, storageType);
                     backingStorage.saveAccount(account);
                 }
+            } catch (org.springframework.web.client.RestClientResponseException e) {
+                log.error("Failed to sync account '{}' to {} during shutdown! HTTP Status: {} {}, Response Body: {}", 
+                          accountName, storageType, e.getStatusCode(), e.getStatusText(), e.getResponseBodyAsString(), e);
             } catch (Exception e) {
-                log.error("Failed to sync account '{}' during shutdown!", accountName, e);
+                log.error("Failed to sync account '{}' to {} during shutdown!", accountName, storageType, e);
             }
         }
         log.info("Sync completed. Exiting.");

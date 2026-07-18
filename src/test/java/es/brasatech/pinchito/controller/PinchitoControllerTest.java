@@ -89,4 +89,47 @@ class PinchitoControllerTest {
         assertEquals("login", resultWrongUser);
         assertNull(session.getAttribute("username"));
     }
+
+    @Test
+    void testRegisterDuplicateUsernamesCaseInsensitive() {
+        when(storageService.accountExists("our_space")).thenReturn(false);
+
+        // Try registering with "Alice" and "alice" (case-insensitive duplicate)
+        List<String> usernames = Arrays.asList("Alice", "alice");
+        List<String> passwords = Arrays.asList("password123", "password456");
+
+        String result = controller.handleRegister("our_space", usernames, passwords, session, model);
+
+        assertEquals("register", result);
+        assertNotNull(model.getAttribute("error"));
+        verify(storageService, never()).saveAccount(any(Account.class));
+    }
+
+    @Test
+    void testLoginCaseInsensitive() {
+        Account account = new Account("our_space");
+        List<Member> members = new ArrayList<>();
+        members.add(new Member("Alice", PasswordHasher.hashPassword("password123")));
+        members.add(new Member("Bob", PasswordHasher.hashPassword("password456")));
+        account.setMembers(members);
+
+        when(storageService.accountExists("our_space")).thenReturn(true);
+        when(storageService.loadAccount("our_space")).thenReturn(account);
+
+        // Try logging in with lowercase "alice" (registered as "Alice")
+        String loginResult = controller.handleLogin("our_space", "alice", "password123", session, model);
+
+        assertEquals("redirect:/dashboard", loginResult);
+        assertEquals("our_space", session.getAttribute("accountName"));
+        // The session username should have the original registered casing
+        assertEquals("Alice", session.getAttribute("username"));
+
+        // Try logging in with uppercase "ALICE" (registered as "Alice")
+        session.clearAttributes();
+        String loginResultUpper = controller.handleLogin("our_space", "ALICE", "password123", session, model);
+
+        assertEquals("redirect:/dashboard", loginResultUpper);
+        assertEquals("our_space", session.getAttribute("accountName"));
+        assertEquals("Alice", session.getAttribute("username"));
+    }
 }
