@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  pinchito:
+    container_name: pinchito
+    image: ricardomaximino/pinchito:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+    volumes:
+      - ./data/accounts:/root/.pinchito/accounts
+    restart: unless-stopped
