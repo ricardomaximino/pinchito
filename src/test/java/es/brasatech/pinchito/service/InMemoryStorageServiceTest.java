@@ -72,4 +72,26 @@ class InMemoryStorageServiceTest {
 
         verify(backingStorage, never()).saveAccount(any(Account.class));
     }
+
+    @Test
+    void testAccountExistsQueriesBackingStorageAndLoadsToCache() {
+        when(backingStorage.listAccounts()).thenReturn(Collections.emptyList());
+        inMemoryStorageService.init();
+
+        // Set backing storage to have it
+        Account extAccount = new Account("external_account");
+        when(backingStorage.accountExists("external_account")).thenReturn(true);
+        when(backingStorage.loadAccount("external_account")).thenReturn(extAccount);
+
+        // Call accountExists - it should check backing storage and load/cache it
+        assertTrue(inMemoryStorageService.accountExists("external_account"));
+
+        verify(backingStorage, times(1)).accountExists("external_account");
+        verify(backingStorage, times(1)).loadAccount("external_account");
+
+        // Second call should hit the cache, not the backing storage (loadAccount count remains 1)
+        assertTrue(inMemoryStorageService.accountExists("external_account"));
+        verify(backingStorage, times(1)).accountExists("external_account");
+        verify(backingStorage, times(1)).loadAccount("external_account");
+    }
 }

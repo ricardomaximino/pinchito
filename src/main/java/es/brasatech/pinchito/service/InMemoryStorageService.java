@@ -65,7 +65,22 @@ public class InMemoryStorageService implements StorageService, DisposableBean {
 
     @Override
     public boolean accountExists(String accountName) {
-        return cache.containsKey(accountName.toLowerCase());
+        String key = accountName.toLowerCase();
+        if (cache.containsKey(key)) {
+            return true;
+        }
+        // Fall back to checking backing storage to handle multi-instance environments or late registrations
+        if (backingStorage.accountExists(accountName)) {
+            try {
+                log.info("Account '{}' exists in backing storage but not in cache. Pre-fetching it...", accountName);
+                Account account = backingStorage.loadAccount(accountName);
+                cache.put(key, account);
+                return true;
+            } catch (Exception e) {
+                log.error("Failed to load account '{}' from backing storage after confirming existence!", accountName, e);
+            }
+        }
+        return false;
     }
 
     @Override
